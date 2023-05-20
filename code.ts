@@ -16,34 +16,77 @@ figma.ui.onmessage = (msg) => {
   // your HTML page is to use an object with a "type" property like this.
   if (msg.type === "create-rectangles") {
     let selectedNode = figma.currentPage.selection;
-    let parentArray = [];
-    parentArray.push(selectedNode[0].name);
-    if (selectedNode.length == 1) {
-      let currentChild = selectedNode[0] as BaseNode;
+    let parentNodes = [];
+    // for (let i = 0; i < selectedNode.length; i++) {
+    //   parentNodes.push({
+    //     key: i,
+    //     node: selectedNode[i],
+    //     parentsArray: [],
+    //   });
+    // }
+
+    for (let i = 0; i < selectedNode.length; i++) {
+      let parentArray = [];
+      let currentChild = selectedNode[i] as BaseNode;
       while (currentChild.type != "PAGE") {
+        parentArray.push(currentChild);
         let parentNode = currentChild.parent;
         let currentChildID = currentChild.id;
         let siblingNodes = parentNode?.children;
-        if (siblingNodes != null) {
-          for (const traversedNode of siblingNodes) {
-            let tNode = traversedNode as FrameNode;
-            if (traversedNode.id != currentChildID) {
-              console.log("here is one tnode: ", tNode);
-              tNode.opacity = 0.06;
-            }
-          }
-        }
-
-        parentArray.push(parentNode?.name);
         if (parentNode != null) {
           currentChild = parentNode;
         }
       }
+      parentNodes.push({
+        key: i,
+        node: selectedNode[i],
+        parentsArray: parentArray.reverse(),
+      });
     }
-    console.log(parentArray);
+
+    let largestIndex = findLargestIndex(parentNodes)[0];
+    let largestParentNode = findLargestIndex(parentNodes)[1];
+    console.log(largestIndex);
+    const skipNodes = [];
+    const skipNodeMap = [];
+    for (let i = 1; i < largestIndex; i++) {
+      let skipNodeParents = [];
+      for (let j = 0; j < parentNodes.length; j++) {
+        if (i < parentNodes[j].parentsArray.length) {
+          skipNodes.push(parentNodes[j].parentsArray[i].id);
+          skipNodeParents.push(parentNodes[j].parentsArray[i].parent);
+        }
+
+        for (let parent of skipNodeParents) {
+          if (parent != null) {
+            for (let child of parent.children) {
+              if (skipNodes.indexOf(child.id) > -1) {
+                (child as FrameNode).opacity = 1;
+              } else {
+                (child as FrameNode).opacity = 0.06;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    console.log(skipNodes);
   }
 
   // Make sure to close the plugin when you're done. Otherwise the plugin will
   // keep running, which shows the cancel button at the bottom of the screen.
   figma.closePlugin();
 };
+
+function findLargestIndex(parentNodes: any) {
+  let index = -1;
+  let largestParent;
+  for (let i = 0; i < parentNodes.length; i++) {
+    if (parentNodes[i].parentsArray.length > index) {
+      index = parentNodes[i].parentsArray.length;
+      largestParent = parentNodes[i].parentsArray;
+    }
+  }
+  return [index, largestParent];
+}
